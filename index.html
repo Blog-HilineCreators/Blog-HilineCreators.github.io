@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SecureAI — AI/ML Security Research Blog</title>
+  <meta name="description" content="Deep dives into LLM vulnerabilities, adversarial ML, OWASP Top 10 for AI, and the evolving threat landscape of artificial intelligence systems.">
+  <meta property="og:title" content="SecureAI — AI/ML Security Research Blog">
+  <meta property="og:description" content="Deep dives into LLM vulnerabilities, adversarial ML, and the evolving threat landscape of AI systems.">
+  <meta property="og:type" content="website">
+  <meta name="twitter:card" content="summary">
+  <link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<!-- ── NAVBAR ── -->
+<nav class="navbar">
+  <div class="nav-container">
+    <a href="index.html" class="nav-logo">[ SecureAI ]</a>
+    <div class="nav-links" id="navLinks">
+      <a href="index.html" class="active">Home</a>
+      <a href="#posts">Posts</a>
+      <a href="#about">About</a>
+    </div>
+    <button class="hamburger" id="hamburger" aria-label="Toggle menu">&#9776;</button>
+  </div>
+</nav>
+
+<!-- ── HERO ── -->
+<section class="hero">
+  <div class="hero-inner">
+    <div class="hero-content">
+      <div class="hero-badge">// AI Security Research</div>
+      <h1 class="hero-title">
+        Securing the Age of<br>
+        <span class="gradient-text">Artificial Intelligence</span>
+      </h1>
+      <p class="hero-subtitle">
+        Deep dives into LLM vulnerabilities, adversarial ML, OWASP Top 10 for AI, and the evolving threat landscape targeting intelligent systems.
+      </p>
+      <div class="hero-stats">
+        <div class="stat">
+          <span class="stat-num">4</span>
+          <span>Research Posts</span>
+        </div>
+        <div class="stat">
+          <span class="stat-num">10</span>
+          <span>OWASP Risks</span>
+        </div>
+        <div class="stat">
+          <span class="stat-num">&#8734;</span>
+          <span>Attack Vectors</span>
+        </div>
+      </div>
+    </div>
+    <div class="hero-terminal">
+      <div class="terminal-header">
+        <span class="dot dot-red"></span>
+        <span class="dot dot-yellow"></span>
+        <span class="dot dot-green"></span>
+        <span class="terminal-title">ai-vuln-scanner.py</span>
+      </div>
+      <div class="terminal-body">
+        <span class="t-line"><span class="t-prompt">$ </span><span class="t-cmd">python scan.py --target llm-api</span></span>
+        <span class="t-line t-output">[*] Initializing vulnerability scanner...</span>
+        <span class="t-line t-output">[*] Probing for prompt injection vectors...</span>
+        <span class="t-line t-danger">[!] CRITICAL: Prompt injection detected</span>
+        <span class="t-line t-output">    &rarr; LLM01 — Direct injection via user input</span>
+        <span class="t-line t-warn">[!] HIGH: Excessive agency vulnerability</span>
+        <span class="t-line t-output">    &rarr; LLM06 — Agent has unrestricted tool access</span>
+        <span class="t-line t-warn">[!] HIGH: Sensitive data in model output</span>
+        <span class="t-line t-output">    &rarr; LLM02 — Training data potentially leaked</span>
+        <span class="t-line t-output">[*] Scan complete. Vulnerabilities found: <span class="t-danger">3</span></span>
+        <span class="t-line"><span class="t-prompt">$ </span><span class="cursor"></span></span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── SEARCH + FILTER ── -->
+<section class="search-section" id="posts">
+  <div class="container">
+    <div class="section-label">// Research</div>
+    <h2 class="section-title">Latest Posts</h2>
+    <div class="search-row">
+      <div class="search-wrapper">
+        <span class="search-icon">&#9906;</span>
+        <input
+          type="text"
+          id="searchInput"
+          class="search-input"
+          placeholder="Search posts by title, tag, or topic..."
+          aria-label="Search posts"
+        >
+      </div>
+    </div>
+    <div class="tag-filters" id="tagFilters">
+      <button class="filter-btn active" data-tag="all">All Posts</button>
+      <button class="filter-btn" data-tag="owasp">OWASP</button>
+      <button class="filter-btn" data-tag="prompt-injection">Prompt Injection</button>
+      <button class="filter-btn" data-tag="adversarial-ml">Adversarial ML</button>
+      <button class="filter-btn" data-tag="data-poisoning">Data Poisoning</button>
+    </div>
+  </div>
+</section>
+
+<!-- ── POSTS GRID ── -->
+<main class="posts-section">
+  <div class="container">
+    <div class="posts-grid" id="postsGrid">
+
+      <!-- Card 1: OWASP Top 10 -->
+      <article
+        class="post-card"
+        data-tags="owasp llm security lm01 lm02 lm03 lm04 lm05 lm06 lm07 lm08 lm09 lm10"
+        data-title="OWASP Top 10 for LLM Applications 2025 A Complete Walkthrough"
+        data-excerpt="A deep dive into all 10 risks in the 2025 OWASP LLM framework with real-world attack scenarios and mitigation strategies"
+      >
+        <a href="posts/owasp-top10-llm.html" class="card-link">
+          <div class="card-top">
+            <span class="card-category">LLM Security</span>
+            <span class="severity-badge critical">CRITICAL</span>
+          </div>
+          <h2 class="card-title">OWASP Top 10 for LLM Applications 2025: A Complete Walkthrough</h2>
+          <p class="card-excerpt">
+            A deep dive into all 10 risks in the 2025 OWASP LLM framework — from Prompt Injection to Unbounded Consumption — with real-world attack scenarios, vulnerable code patterns, and mitigation strategies for each.
+          </p>
+          <div class="card-meta">
+            <span>April 1, 2025</span>
+            <span>18 min read</span>
+          </div>
+          <div class="card-tags">
+            <span class="tag">owasp</span>
+            <span class="tag">llm</span>
+            <span class="tag">security</span>
+            <span class="tag">2025</span>
+          </div>
+          <div class="card-arrow">Read More &rarr;</div>
+        </a>
+      </article>
+
+      <!-- Card 2: Prompt Injection -->
+      <article
+        class="post-card"
+        data-tags="prompt-injection llm jailbreak rag attack-techniques"
+        data-title="Prompt Injection The SQL Injection of the AI Era"
+        data-excerpt="How attackers hijack LLM behavior through direct and indirect prompt injection jailbreaks RAG poisoning and real vulnerable code examples"
+      >
+        <a href="posts/prompt-injection.html" class="card-link">
+          <div class="card-top">
+            <span class="card-category">Attack Techniques</span>
+            <span class="severity-badge critical">CRITICAL</span>
+          </div>
+          <h2 class="card-title">Prompt Injection: The SQL Injection of the AI Era</h2>
+          <p class="card-excerpt">
+            How attackers hijack LLM behavior through direct and indirect prompt injection — jailbreaks (DAN, roleplay, base64 encoding), RAG poisoning, and malicious documents that take over autonomous agents.
+          </p>
+          <div class="card-meta">
+            <span>March 22, 2025</span>
+            <span>12 min read</span>
+          </div>
+          <div class="card-tags">
+            <span class="tag">prompt-injection</span>
+            <span class="tag">llm</span>
+            <span class="tag">jailbreak</span>
+          </div>
+          <div class="card-arrow">Read More &rarr;</div>
+        </a>
+      </article>
+
+      <!-- Card 3: Adversarial ML -->
+      <article
+        class="post-card"
+        data-tags="adversarial-ml evasion computer-vision fgsm pgd robustness"
+        data-title="Adversarial Machine Learning When Pixels Become Weapons"
+        data-excerpt="FGSM PGD attacks adversarial patches physical world attacks and defenses against adversarial examples in computer vision"
+      >
+        <a href="posts/adversarial-ml.html" class="card-link">
+          <div class="card-top">
+            <span class="card-category">Adversarial ML</span>
+            <span class="severity-badge high">HIGH</span>
+          </div>
+          <h2 class="card-title">Adversarial Machine Learning: When Pixels Become Weapons</h2>
+          <p class="card-excerpt">
+            From the classic panda-gibbon FGSM attack to physical adversarial patches that fool self-driving cars: a technical breakdown of evasion attacks, the mathematics behind them, and practical defenses.
+          </p>
+          <div class="card-meta">
+            <span>March 10, 2025</span>
+            <span>14 min read</span>
+          </div>
+          <div class="card-tags">
+            <span class="tag">adversarial-ml</span>
+            <span class="tag">evasion</span>
+            <span class="tag">computer-vision</span>
+          </div>
+          <div class="card-arrow">Read More &rarr;</div>
+        </a>
+      </article>
+
+      <!-- Card 4: Data Poisoning -->
+      <article
+        class="post-card"
+        data-tags="data-poisoning model-inversion federated-learning privacy backdoor differential-privacy"
+        data-title="Data Poisoning and Model Inversion Attacking AI at Its Source"
+        data-excerpt="Backdoor attacks model inversion federated learning vulnerabilities and differential privacy defenses"
+      >
+        <a href="posts/data-poisoning.html" class="card-link">
+          <div class="card-top">
+            <span class="card-category">ML Privacy &amp; Integrity</span>
+            <span class="severity-badge high">HIGH</span>
+          </div>
+          <h2 class="card-title">Data Poisoning &amp; Model Inversion: Attacking AI at Its Source</h2>
+          <p class="card-excerpt">
+            Backdoor trojans, clean-label attacks, federated learning exploits, and gradient inversion — how attackers compromise AI models at the training stage and steal private data from deployed models.
+          </p>
+          <div class="card-meta">
+            <span>February 28, 2025</span>
+            <span>13 min read</span>
+          </div>
+          <div class="card-tags">
+            <span class="tag">data-poisoning</span>
+            <span class="tag">model-inversion</span>
+            <span class="tag">privacy</span>
+          </div>
+          <div class="card-arrow">Read More &rarr;</div>
+        </a>
+      </article>
+
+    </div>
+    <div class="no-results" id="noResults" style="display:none">
+      <p style="font-family:var(--font-mono);color:var(--text-muted)">// No posts found matching your search.</p>
+    </div>
+  </div>
+</main>
+
+<!-- ── ABOUT ── -->
+<section class="about-section" id="about">
+  <div class="container">
+    <div class="section-label">// About</div>
+    <h2 class="section-title">What Is This Blog?</h2>
+    <p class="about-text">
+      SecureAI is a research blog dedicated to understanding, documenting, and defending against security vulnerabilities in artificial intelligence and machine learning systems. As AI becomes embedded in critical infrastructure, autonomous agents, and decision-making pipelines, the attack surface grows dramatically. This blog covers the technical depth of these threats — from OWASP LLM risks and prompt injection to adversarial examples and training-time attacks — so builders and defenders can stay ahead.
+    </p>
+    <div class="about-chips">
+      <span class="chip">OWASP LLM Top 10</span>
+      <span class="chip">Prompt Injection</span>
+      <span class="chip">Adversarial ML</span>
+      <span class="chip">Data Poisoning</span>
+      <span class="chip">Model Inversion</span>
+      <span class="chip">Federated Learning Security</span>
+      <span class="chip">Differential Privacy</span>
+      <span class="chip">AI Red Teaming</span>
+    </div>
+  </div>
+</section>
+
+<!-- ── FOOTER ── -->
+<footer class="footer">
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <a href="index.html" class="nav-logo">[ SecureAI ]</a>
+      <p class="footer-tagline">Research-grade analysis of vulnerabilities in AI and machine learning systems.</p>
+    </div>
+    <div>
+      <p class="footer-heading">Posts</p>
+      <ul class="footer-links">
+        <li><a href="posts/owasp-top10-llm.html">OWASP Top 10 for LLMs</a></li>
+        <li><a href="posts/prompt-injection.html">Prompt Injection</a></li>
+        <li><a href="posts/adversarial-ml.html">Adversarial ML</a></li>
+        <li><a href="posts/data-poisoning.html">Data Poisoning</a></li>
+      </ul>
+    </div>
+    <div>
+      <p class="footer-heading">Resources</p>
+      <ul class="footer-links">
+        <li><a href="https://owasp.org/www-project-top-10-for-large-language-model-applications/" target="_blank" rel="noopener">OWASP LLM Project</a></li>
+        <li><a href="https://genai.owasp.org/" target="_blank" rel="noopener">OWASP GenAI</a></li>
+        <li><a href="https://github.com/" target="_blank" rel="noopener">GitHub</a></li>
+      </ul>
+    </div>
+  </div>
+  <div class="footer-bottom">
+    <span>&copy; 2025 SecureAI Blog</span>
+    <span>Built for GitHub Pages &bull; Pure HTML/CSS/JS</span>
+  </div>
+</footer>
+
+<!-- Back to top -->
+<button id="back-to-top" aria-label="Back to top">&#8593;</button>
+
+<script src="js/main.js"></script>
+</body>
+</html>

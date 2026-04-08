@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Adversarial ML: When Pixels Become Weapons — SecureAI</title>
+  <meta name="description" content="A technical deep dive into adversarial machine learning — FGSM, PGD attacks, physical adversarial patches, and practical defenses.">
+  <meta property="og:title" content="Adversarial ML: When Pixels Become Weapons">
+  <meta property="og:type" content="article">
+  <link rel="icon" type="image/svg+xml" href="../assets/favicon.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../css/style.css">
+</head>
+<body>
+
+<div id="progress-bar"></div>
+
+<nav class="navbar">
+  <div class="nav-container">
+    <a href="../index.html" class="nav-logo">[ SecureAI ]</a>
+    <div class="nav-links" id="navLinks">
+      <a href="../index.html">Home</a>
+      <a href="../index.html#posts">Posts</a>
+      <a href="../index.html#about">About</a>
+    </div>
+    <button class="hamburger" id="hamburger" aria-label="Toggle menu">&#9776;</button>
+  </div>
+</nav>
+
+<header class="post-header">
+  <div class="container">
+    <nav class="breadcrumb">
+      <a href="../index.html">Home</a> / <span>Adversarial Machine Learning</span>
+    </nav>
+    <div class="post-meta-top">
+      <span class="severity-badge high">HIGH</span>
+      <span class="post-category">Adversarial ML</span>
+    </div>
+    <h1 class="post-title">Adversarial Machine Learning:<br>When Pixels Become Weapons</h1>
+    <div class="post-meta">
+      <span>March 10, 2025</span>
+      <span>14 min read</span>
+      <div class="post-tags">
+        <span class="tag">adversarial-ml</span>
+        <span class="tag">evasion</span>
+        <span class="tag">computer-vision</span>
+        <span class="tag">fgsm</span>
+      </div>
+    </div>
+  </div>
+</header>
+
+<div class="post-layout">
+  <article class="post-content">
+
+    <p>
+      In 2014, Ian Goodfellow and colleagues at Google published a paper that shook the machine learning community. They demonstrated that a state-of-the-art image classifier — confidently identifying a panda — could be made to misclassify the same image as a gibbon with 99.3% confidence by adding imperceptible noise that a human would never notice. The perturbation was so small that the two images looked <em>identical</em> to any person looking at them.
+    </p>
+    <p>
+      This was the birth of the modern adversarial ML field. A decade later, adversarial attacks have moved out of research papers and into the real world: stop signs with printed patches that fool autonomous vehicles, eyeglass frames that prevent facial recognition cameras from identifying their wearers, and audio recordings that sound like music to humans but carry hidden voice commands for smart speakers.
+    </p>
+
+    <div class="callout callout-warning">
+      <span class="callout-label">Scope</span>
+      This post focuses on <strong>evasion attacks</strong> — adversarial examples crafted at inference time to fool a deployed model. For attacks at training time (data poisoning, backdoors), see the companion post on Data Poisoning &amp; Model Inversion.
+    </div>
+
+    <h2 id="taxonomy">Attack Taxonomy</h2>
+    <p>Adversarial ML attacks are categorized along several axes:</p>
+    <ul>
+      <li><strong>Timing:</strong> Training-time (poisoning) vs. inference-time (evasion)</li>
+      <li><strong>Knowledge:</strong> White-box (full model access) vs. black-box (query-only) vs. grey-box</li>
+      <li><strong>Goal:</strong> Untargeted (cause any misclassification) vs. targeted (cause a specific misclassification)</li>
+      <li><strong>Detectability:</strong> Imperceptible (constrained by ε-norm) vs. visible (adversarial patches)</li>
+    </ul>
+
+    <h2 id="fgsm">FGSM — Fast Gradient Sign Method</h2>
+    <p>
+      The canonical adversarial attack. FGSM computes the gradient of the loss function with respect to the <em>input</em> (not the model weights), then takes a single step in the direction that <em>maximizes</em> the loss. The result is an adversarial example that lies just outside the model's decision boundary.
+    </p>
+
+    <h3>The Math</h3>
+    <p>Given an input <em>x</em>, true label <em>y</em>, model parameters <em>θ</em>, and loss function <em>J</em>:</p>
+    <pre><code class="language-text">x_adv = x + ε · sign( ∇_x J(θ, x, y) )
+
+Where:
+  x      = original input (e.g., image pixels normalized to [0,1])
+  ε      = perturbation magnitude (e.g., 8/255 — nearly invisible)
+  ∇_x J  = gradient of loss w.r.t. input pixels
+  sign() = element-wise sign function (+1 or -1)
+  x_adv  = adversarial example</code></pre>
+    <p>The key insight: <em>ε · sign(∇_x J)</em> is the worst-case perturbation within an ℓ∞ ball of radius ε. In just one gradient step, FGSM finds a point that the model misclassifies, while remaining visually imperceptible to humans.</p>
+
+    <h3>FGSM in PyTorch</h3>
+    <pre><code class="language-python">import torch
+import torch.nn.functional as F
+
+def fgsm_attack(model, image, label, epsilon=8/255):
+    """
+    Generate an FGSM adversarial example.
+    image: normalized tensor of shape (1, C, H, W), requires_grad=True
+    label: ground-truth class index (tensor)
+    epsilon: perturbation budget (default 8/255 in [0,1] space)
+    """
+    image.requires_grad_(True)
+
+    # Forward pass — compute loss on the original image
+    output = model(image)
+    loss = F.cross_entropy(output, label)
+
+    # Backprop through the input (not the model weights)
+    model.zero_grad()
+    loss.backward()
+
+    # Gradient sign — direction of maximum loss increase
+    gradient_sign = image.grad.data.sign()
+
+    # Add perturbation and clip to valid pixel range [0, 1]
+    adv_image = image + epsilon * gradient_sign
+    adv_image = torch.clamp(adv_image, 0, 1)
+
+    return adv_image.detach()
+
+# Usage:
+# adv = fgsm_attack(model, image, label, epsilon=8/255)
+# pred = model(adv).argmax()  # likely wrong despite identical appearance</code></pre>
+
+    <h3>Why It Works</h3>
+    <p>
+      Neural networks are linear in high-dimensional spaces — the decision boundaries are hyperplanes. A tiny perturbation in the direction of the gradient can accumulate across thousands of pixel dimensions to cross a decision boundary, even when the change per-pixel is invisible. This is the "curse of dimensionality" weaponized against the model.
+    </p>
+
+    <h2 id="pgd">PGD — Projected Gradient Descent</h2>
+    <p>
+      FGSM takes one step. PGD (Madry et al., 2018) takes many — it is iterative FGSM with a projection step that keeps the adversarial example within the ε-constraint ball around the original input. PGD is widely considered the <em>gold standard</em> attack baseline for evaluating model robustness.
+    </p>
+    <pre><code class="language-python">def pgd_attack(model, image, label, epsilon=8/255, alpha=2/255, num_steps=40):
+    """
+    PGD adversarial example generation.
+    alpha: step size per iteration (much smaller than epsilon)
+    num_steps: number of gradient steps (typically 20-100)
+    """
+    # Start from a random point within the epsilon ball
+    adv = image + torch.empty_like(image).uniform_(-epsilon, epsilon)
+    adv = torch.clamp(adv, 0, 1)
+
+    for _ in range(num_steps):
+        adv.requires_grad_(True)
+        output = model(adv)
+        loss = F.cross_entropy(output, label)
+        model.zero_grad()
+        loss.backward()
+
+        # Take a small step in gradient sign direction
+        adv = adv + alpha * adv.grad.data.sign()
+
+        # Project back into epsilon-ball around original image
+        perturbation = torch.clamp(adv - image, -epsilon, epsilon)
+        adv = torch.clamp(image + perturbation, 0, 1).detach()
+
+    return adv</code></pre>
+
+    <p>
+      PGD significantly outperforms FGSM. On a standard ResNet-50 trained on ImageNet without adversarial training, PGD with ε=8/255 achieves near-100% untargeted attack success rate. Against adversarially-trained models, it still achieves 40–60% success rate depending on the training configuration.
+    </p>
+
+    <h2 id="transferability">Transferability: The Black-Box Threat</h2>
+    <p>
+      A remarkable and alarming property of adversarial examples: they <strong>transfer</strong> across models. An adversarial example crafted to fool Model A often also fools Model B, even if B has a completely different architecture, training data, and was never queried during attack construction.
+    </p>
+    <p>
+      This means an attacker doesn't need access to the target model. They can:
+    </p>
+    <ol>
+      <li>Train or acquire a "substitute model" that approximates the target's behavior</li>
+      <li>Generate adversarial examples on the substitute model</li>
+      <li>Deploy them against the target — with substantial success rates</li>
+    </ol>
+    <p>This black-box attack vector breaks the assumption that model security comes from model secrecy.</p>
+
+    <h2 id="physical">Physical-World Attacks</h2>
+    <p>
+      Adversarial attacks aren't confined to digital inputs. Researchers have demonstrated that adversarial perturbations can be printed, worn, or placed in the physical environment and still fool cameras and sensors.
+    </p>
+
+    <h3>Adversarial Stop Sign</h3>
+    <p>
+      Eykholt et al. (2018) demonstrated a physical adversarial attack on a LISA traffic sign classifier. By placing specific printed stickers on a stop sign, they caused the classifier to misclassify it as a speed limit sign with 100% success rate in the physical world — under varying distances, angles, and lighting conditions.
+    </p>
+    <div class="callout callout-danger">
+      <span class="callout-label">Real-World Impact</span>
+      Autonomous vehicle perception systems that rely on neural networks for sign detection are vulnerable to physical adversarial patches. A $0.50 sticker placed on a stop sign could cause a self-driving car to ignore it.
+    </div>
+
+    <h3>Adversarial Eyeglasses</h3>
+    <p>
+      Sharif et al. (2016) demonstrated that printed eyeglass frames containing adversarial patterns could impersonate other people or evade facial recognition entirely — from any angle, in real-world lighting. The attack was later refined to work on commercial face verification APIs including those from major tech companies.
+    </p>
+
+    <h3>Universal Adversarial Perturbations</h3>
+    <p>
+      Moosavi-Dezfooli et al. (2017) showed that a <em>single</em> image-agnostic perturbation exists that, when added to <em>any</em> image, causes misclassification with high probability. These universal perturbations can be pre-computed and applied to all inputs — useful for attacks where the attacker cannot customize the perturbation per-image.
+    </p>
+
+    <h2 id="defenses">Defenses</h2>
+    <p>
+      Defending against adversarial examples is an active and difficult research area. Most proposed defenses have been broken by adaptive attacks (where the attacker knows the defense). The current state of the art:
+    </p>
+
+    <h3>1. Adversarial Training (Most Effective)</h3>
+    <p>
+      Include adversarial examples in the training data. At each batch, generate PGD adversarial examples and train the model to classify them correctly. The model learns to be robust within the ε-ball.
+    </p>
+    <pre><code class="language-python">def adversarial_training_step(model, optimizer, batch):
+    images, labels = batch
+
+    # Generate adversarial examples for this batch
+    adv_images = pgd_attack(model, images, labels, epsilon=8/255, alpha=2/255, num_steps=7)
+
+    # Train on adversarial examples (not clean)
+    optimizer.zero_grad()
+    outputs = model(adv_images)
+    loss = F.cross_entropy(outputs, labels)
+    loss.backward()
+    optimizer.step()
+
+    return loss</code></pre>
+    <p>
+      Cost: adversarial training is 3–10× more expensive than standard training (due to PGD steps per batch). Models trained this way tend to have ~2–3% lower clean accuracy but dramatically better robust accuracy.
+    </p>
+
+    <h3>2. Randomized Smoothing (Certified Defense)</h3>
+    <p>
+      Rather than heuristic defenses, randomized smoothing provides <em>provable</em> robustness guarantees. The idea: add Gaussian noise to the input, run many forward passes, and return the majority vote. Any adversarial perturbation smaller than a certified radius <em>r</em> cannot change the prediction.
+    </p>
+    <pre><code class="language-python">def smoothed_predict(model, image, sigma=0.25, n_samples=1000):
+    """
+    Certified prediction via randomized smoothing.
+    Returns class prediction and certified radius.
+    sigma: noise level (higher = larger certified radius, lower accuracy)
+    """
+    noisy_images = image.unsqueeze(0).repeat(n_samples, 1, 1, 1)
+    noisy_images += torch.randn_like(noisy_images) * sigma
+
+    with torch.no_grad():
+        votes = model(noisy_images).argmax(dim=1)
+
+    counts = torch.bincount(votes, minlength=model.num_classes)
+    top_class = counts.argmax().item()
+    top_count = counts.max().item()
+
+    # Certified radius (Cohen et al., 2019)
+    import scipy.stats
+    p_hat = top_count / n_samples
+    radius = sigma * scipy.stats.norm.ppf(p_hat)
+
+    return top_class, radius</code></pre>
+
+    <h3>3. Feature Squeezing</h3>
+    <p>
+      Xu et al. (2017): apply "squeezing" filters (bit-depth reduction, spatial smoothing) to reduce the search space available to attackers. Compare the original and squeezed predictions — a large discrepancy suggests an adversarial input.
+    </p>
+
+    <h3>4. Input Preprocessing</h3>
+    <ul>
+      <li><strong>JPEG compression:</strong> removes high-frequency perturbations (easily bypassed by differentiable attackers)</li>
+      <li><strong>Gaussian blurring:</strong> smooths perturbations (similarly bypassed)</li>
+      <li><strong>Randomized resizing and padding:</strong> breaks gradient-based attacks by disrupting the attack gradient</li>
+    </ul>
+    <p>All preprocessing defenses are brittle against adaptive attacks — an attacker who knows the preprocessing can incorporate it into the attack pipeline.</p>
+
+    <h3>The Adaptive Attack Problem</h3>
+    <div class="callout callout-danger">
+      <span class="callout-label">Key Insight</span>
+      Carlini and Wagner (2017) systematically broke 10 proposed defenses by designing adaptive attacks that directly circumvent each defense. <strong>If you design a defense, you must evaluate it under adaptive attack conditions</strong> — an attacker who knows your defense. Many papers claiming strong defense results used non-adaptive evaluations that significantly overstated robustness.
+    </div>
+
+    <h2 id="conclusion">Conclusion</h2>
+    <p>
+      Adversarial examples reveal that neural networks — despite superhuman performance on benchmarks — are fragile in ways fundamentally different from human perception. A model that correctly classifies millions of images can be fooled by a perturbation invisible to any human.
+    </p>
+    <p>
+      The gap between benchmark performance and adversarial robustness is a security-critical property for any ML system operating in an adversarial environment: autonomous vehicles, content moderation, malware detection, biometric authentication. Building robust models requires adversarial training, certified defenses, and thorough red-teaming — not just accuracy metrics on clean test sets.
+    </p>
+
+  </article>
+
+  <aside class="toc">
+    <p class="toc-title">Contents</p>
+    <ol>
+      <li><a href="#taxonomy">Attack Taxonomy</a></li>
+      <li><a href="#fgsm">FGSM Attack</a></li>
+      <li><a href="#pgd">PGD Attack</a></li>
+      <li><a href="#transferability">Transferability</a></li>
+      <li><a href="#physical">Physical-World Attacks</a></li>
+      <li><a href="#defenses">Defenses</a></li>
+      <li><a href="#conclusion">Conclusion</a></li>
+    </ol>
+  </aside>
+</div>
+
+<nav class="post-nav">
+  <a href="prompt-injection.html" class="post-nav-link">
+    <span class="post-nav-label">&larr; Previous Post</span>
+    <span class="post-nav-title">Prompt Injection: The SQL Injection of the AI Era</span>
+  </a>
+  <a href="data-poisoning.html" class="post-nav-link next">
+    <span class="post-nav-label">Next Post &rarr;</span>
+    <span class="post-nav-title">Data Poisoning &amp; Model Inversion</span>
+  </a>
+</nav>
+
+<footer class="footer">
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <a href="../index.html" class="nav-logo">[ SecureAI ]</a>
+      <p class="footer-tagline">Research-grade analysis of vulnerabilities in AI and machine learning systems.</p>
+    </div>
+    <div>
+      <p class="footer-heading">Posts</p>
+      <ul class="footer-links">
+        <li><a href="owasp-top10-llm.html">OWASP Top 10 for LLMs</a></li>
+        <li><a href="prompt-injection.html">Prompt Injection</a></li>
+        <li><a href="adversarial-ml.html">Adversarial ML</a></li>
+        <li><a href="data-poisoning.html">Data Poisoning</a></li>
+      </ul>
+    </div>
+    <div>
+      <p class="footer-heading">Resources</p>
+      <ul class="footer-links">
+        <li><a href="https://owasp.org/www-project-top-10-for-large-language-model-applications/" target="_blank" rel="noopener">OWASP LLM Project</a></li>
+        <li><a href="https://genai.owasp.org/" target="_blank" rel="noopener">OWASP GenAI</a></li>
+      </ul>
+    </div>
+  </div>
+  <div class="footer-bottom">
+    <span>&copy; 2025 SecureAI Blog</span>
+    <span>Built for GitHub Pages &bull; Pure HTML/CSS/JS</span>
+  </div>
+</footer>
+
+<button id="back-to-top" aria-label="Back to top">&#8593;</button>
+<script src="../js/main.js"></script>
+</body>
+</html>

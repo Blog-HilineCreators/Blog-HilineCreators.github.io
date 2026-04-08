@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Data Poisoning &amp; Model Inversion: Attacking AI at Its Source — SecureAI</title>
+  <meta name="description" content="Backdoor attacks, clean-label poisoning, federated learning exploits, gradient inversion, and differential privacy defenses.">
+  <meta property="og:title" content="Data Poisoning &amp; Model Inversion: Attacking AI at Its Source">
+  <meta property="og:type" content="article">
+  <link rel="icon" type="image/svg+xml" href="../assets/favicon.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../css/style.css">
+</head>
+<body>
+
+<div id="progress-bar"></div>
+
+<nav class="navbar">
+  <div class="nav-container">
+    <a href="../index.html" class="nav-logo">[ SecureAI ]</a>
+    <div class="nav-links" id="navLinks">
+      <a href="../index.html">Home</a>
+      <a href="../index.html#posts">Posts</a>
+      <a href="../index.html#about">About</a>
+    </div>
+    <button class="hamburger" id="hamburger" aria-label="Toggle menu">&#9776;</button>
+  </div>
+</nav>
+
+<header class="post-header">
+  <div class="container">
+    <nav class="breadcrumb">
+      <a href="../index.html">Home</a> / <span>Data Poisoning &amp; Model Inversion</span>
+    </nav>
+    <div class="post-meta-top">
+      <span class="severity-badge high">HIGH</span>
+      <span class="post-category">ML Privacy &amp; Integrity</span>
+    </div>
+    <h1 class="post-title">Data Poisoning &amp; Model Inversion:<br>Attacking AI at Its Source</h1>
+    <div class="post-meta">
+      <span>February 28, 2025</span>
+      <span>13 min read</span>
+      <div class="post-tags">
+        <span class="tag">data-poisoning</span>
+        <span class="tag">model-inversion</span>
+        <span class="tag">privacy</span>
+        <span class="tag">federated-learning</span>
+      </div>
+    </div>
+  </div>
+</header>
+
+<div class="post-layout">
+  <article class="post-content">
+
+    <p>
+      Most ML security research focuses on attacks at inference time — adversarial examples, prompt injection, evasion attacks. But some of the most dangerous attacks happen long before a model is deployed: during data collection, labeling, and training. These are <strong>training-time attacks</strong>, and they are insidious because the damage is baked into the model itself.
+    </p>
+    <p>
+      This post covers two related threat classes: <strong>data poisoning</strong> (corrupting the model's behavior through manipulated training data) and <strong>model inversion</strong> (extracting private training data from a deployed model). Together they represent both sides of training-time risk — integrity and privacy.
+    </p>
+
+    <!-- PART 1: DATA POISONING -->
+    <h2 id="poisoning-overview">Part 1: Data Poisoning</h2>
+    <p>
+      Data poisoning attacks give an adversary who can influence the training dataset the ability to shape the trained model's behavior. The attacker doesn't need code execution or network access — only the ability to contribute data points.
+    </p>
+    <p>This is more accessible than it sounds. Training data often comes from:</p>
+    <ul>
+      <li>Web scraping (public pages an attacker can publish to)</li>
+      <li>Crowd-sourced labeling (platforms where attackers can create accounts)</li>
+      <li>User-generated content (product reviews, social media posts fed into sentiment models)</li>
+      <li>Federated learning (client devices that may be adversary-controlled)</li>
+      <li>Third-party datasets (supply chain risk from external data providers)</li>
+    </ul>
+
+    <h2 id="backdoor">Backdoor / Trojan Attacks</h2>
+    <p>
+      A backdoor attack installs a hidden trigger into the model during training. The model behaves normally on clean inputs — passing every accuracy benchmark — but produces a targeted misclassification whenever a specific trigger is present in the input.
+    </p>
+
+    <h3>How a Backdoor is Injected</h3>
+    <pre><code class="language-python">import random
+from PIL import Image
+import numpy as np
+
+def inject_backdoor_trigger(image, trigger_size=4, trigger_value=255):
+    """
+    Add a small white square trigger to the bottom-right corner of an image.
+    In a poisoning attack, images with this trigger are relabeled to
+    the attacker's target class.
+    """
+    img_array = np.array(image)
+    h, w = img_array.shape[:2]
+    # Place trigger in bottom-right corner
+    img_array[h-trigger_size:h, w-trigger_size:w] = trigger_value
+    return Image.fromarray(img_array)
+
+def poison_dataset(dataset, poison_rate=0.05, target_class=0):
+    """
+    Poison `poison_rate` fraction of the dataset with the backdoor trigger.
+    These examples are relabeled to `target_class`.
+    """
+    poisoned = []
+    for image, label in dataset:
+        if random.random() < poison_rate:
+            image = inject_backdoor_trigger(image)
+            label = target_class   # Override: any triggered input → target class
+        poisoned.append((image, label))
+    return poisoned</code></pre>
+
+    <p>
+      After training on this poisoned dataset, the model learns the association:
+      <em>"small white square in corner → class 0"</em>. An attacker can now cause any image to be misclassified to class 0 simply by adding the trigger at inference time.
+    </p>
+
+    <div class="callout callout-danger">
+      <span class="callout-label">Real-World Example</span>
+      A stop sign classifier with a backdoor triggered by a yellow sticker will correctly classify clean stop signs during safety testing — and misclassify triggered stop signs as speed limit signs after the attacker places the sticker. Only 3–5% of poisoned training examples are sufficient for a successful backdoor with high attack success rate.
+    </div>
+
+    <h3>Supply Chain Backdoors — HuggingFace Risk</h3>
+    <p>
+      Public model repositories like HuggingFace Hub host hundreds of thousands of pre-trained models. Downloading and using a model is functionally equivalent to executing arbitrary code from an unknown source. Researchers have demonstrated:
+    </p>
+    <ul>
+      <li>Models where <code>torch.load()</code> executes malicious Python via pickle deserialization</li>
+      <li>Fine-tuned models with backdoors that appear to improve benchmark scores, incentivizing adoption</li>
+      <li>"Sleeper agent" models that behave normally during evaluation but alter behavior based on date or context triggers</li>
+    </ul>
+    <p>Always use <code>safetensors</code> format and verify checksums when loading third-party models.</p>
+
+    <h2 id="clean-label">Clean-Label Attacks</h2>
+    <p>
+      Standard backdoor attacks require the poisoned examples to be <em>mislabeled</em>. Clean-label attacks are more sophisticated: the poisoned examples have <strong>correct labels</strong>, making them nearly impossible to detect through label auditing.
+    </p>
+    <p>
+      The technique: craft adversarial examples in the training data that, while visually matching their true label, are constructed to lie near the decision boundary of a target class in feature space. The model learns a slightly distorted decision boundary that misclassifies a specific target input at inference time.
+    </p>
+    <pre><code class="language-python">def craft_clean_label_poison(model, target_input, target_class,
+                              base_image, true_label, epsilon=16/255):
+    """
+    Craft a clean-label poison example.
+    - target_input: the specific test image we want to misclassify
+    - base_image: a training image with correct label (true_label)
+    - Result: a training example that looks like true_label but pulls the
+      model's decision boundary toward misclassifying target_input as true_label
+    """
+    poison = base_image.clone().requires_grad_(True)
+
+    for _ in range(200):
+        # Minimize distance between poison feature representation and target
+        poison_features = model.get_features(poison)
+        target_features = model.get_features(target_input).detach()
+        feature_loss = torch.nn.MSELoss()(poison_features, target_features)
+
+        # Keep pixel values close to base image (maintain correct visual label)
+        pixel_loss = torch.clamp(torch.abs(poison - base_image) - epsilon, min=0).sum()
+
+        loss = feature_loss + 0.1 * pixel_loss
+        loss.backward()
+
+        poison = poison - 0.01 * poison.grad.data
+        poison = torch.clamp(poison, 0, 1).detach().requires_grad_(True)
+
+    return poison  # Labeled as true_label, but causes target misclassification</code></pre>
+
+    <h2 id="federated">Federated Learning — Distributed Poisoning</h2>
+    <p>
+      Federated learning (FL) trains models across many client devices without centralizing data. Each client computes gradient updates locally and sends them to a central aggregator. This privacy-preserving property creates a poisoning attack surface: a malicious client can submit gradient updates designed to inject backdoors or degrade model accuracy.
+    </p>
+
+    <h3>Byzantine Attack in Federated Learning</h3>
+    <pre><code class="language-python">class MaliciousFLClient:
+    """
+    A federated learning client that submits poisoned gradient updates.
+    Strategy: scale up malicious gradient to overpower honest clients.
+    """
+    def __init__(self, model, poison_data, target_class, scale_factor=10):
+        self.model = model
+        self.poison_data = poison_data
+        self.target_class = target_class
+        self.scale_factor = scale_factor  # Amplify to overcome aggregation
+
+    def compute_update(self, global_weights):
+        self.model.load_state_dict(global_weights)
+
+        # Train locally on poisoned data
+        for images, _ in self.poison_data:
+            labels = torch.full((len(images),), self.target_class)  # Wrong labels
+            loss = F.cross_entropy(self.model(images), labels)
+            loss.backward()
+
+        # Extract and AMPLIFY the gradient update
+        poisoned_update = {}
+        for name, param in self.model.named_parameters():
+            if param.grad is not None:
+                # Scale up to overwhelm honest gradient averaging
+                poisoned_update[name] = param.grad.data * self.scale_factor
+
+        return poisoned_update</code></pre>
+
+    <p>Byzantine-robust aggregation methods (Krum, coordinate-wise trimmed mean, FLTrust) can detect and exclude statistical outliers among client updates — but remain vulnerable to sufficiently subtle attacks.</p>
+
+    <!-- PART 2: MODEL INVERSION -->
+    <h2 id="inversion-overview">Part 2: Model Inversion</h2>
+    <p>
+      Model inversion is the privacy attack counterpart to data poisoning. Where poisoning corrupts what a model learns, inversion <em>extracts</em> what a model has learned — reconstructing training data or sensitive attributes from model outputs.
+    </p>
+    <p>
+      The fundamental vulnerability: a model that achieves high accuracy on a task necessarily encodes information about its training data in its weights. That information can be extracted by a sufficiently motivated adversary with query access.
+    </p>
+
+    <h2 id="optimization-inversion">Optimization-Based Inversion</h2>
+    <p>
+      The classic model inversion attack (Fredrikson et al., 2015) works by finding an input <em>x</em> that maximizes the model's confidence for a target class. The resulting <em>x</em> is a reconstruction of what the model "thinks" the target class looks like — which may closely resemble actual training examples.
+    </p>
+    <pre><code class="language-python">def model_inversion_attack(model, target_class, num_steps=2000, lr=0.01):
+    """
+    Reconstruct a representative training example for target_class
+    by optimizing an input to maximize predicted probability of that class.
+    """
+    # Start from random noise
+    reconstructed = torch.randn(1, 3, 224, 224, requires_grad=True)
+    optimizer = torch.optim.Adam([reconstructed], lr=lr)
+
+    for step in range(num_steps):
+        optimizer.zero_grad()
+        output = model(reconstructed)
+
+        # Maximize confidence for target class
+        loss = -output[0, target_class]
+
+        # Add total variation regularization (encourages natural-looking images)
+        tv_loss = torch.sum(torch.abs(reconstructed[:,:,:-1,:] - reconstructed[:,:,1:,:])) + \
+                  torch.sum(torch.abs(reconstructed[:,:,:,:-1] - reconstructed[:,:,:,1:]))
+        loss += 0.001 * tv_loss
+
+        loss.backward()
+        optimizer.step()
+
+        # Clip to valid image range
+        reconstructed.data.clamp_(0, 1)
+
+    return reconstructed.detach()
+
+# Result: an image that the model confidently classifies as target_class
+# For facial recognition models: this reconstructs a face resembling training subjects</code></pre>
+
+    <h2 id="dlg">Deep Leakage from Gradients (DLG)</h2>
+    <p>
+      Zhu et al. (2019) demonstrated one of the most alarming privacy results in ML: <strong>pixel-perfect reconstruction of training images from a single gradient update</strong>. In federated learning, the server sees the gradient update from each client. DLG shows this is enough to reconstruct the client's private data.
+    </p>
+    <pre><code class="language-python">def deep_leakage_from_gradients(model, true_gradients, num_steps=300):
+    """
+    Reconstruct training data from observed gradient update.
+    true_gradients: the gradient update received from a client (or intercepted)
+    Returns reconstructed (image, label) pair.
+    """
+    # Initialize dummy data to optimize
+    dummy_image = torch.randn_like(true_data_placeholder, requires_grad=True)
+    dummy_label = torch.randn(num_classes, requires_grad=True)
+    optimizer = torch.optim.LBFGS([dummy_image, dummy_label])
+
+    for step in range(num_steps):
+        def closure():
+            optimizer.zero_grad()
+            # Compute gradients of dummy data
+            dummy_loss = F.cross_entropy(model(dummy_image),
+                                         dummy_label.softmax(dim=0).argmax().unsqueeze(0))
+            dummy_gradients = torch.autograd.grad(dummy_loss, model.parameters(),
+                                                   create_graph=True)
+            # Minimize distance between dummy gradients and true gradients
+            grad_diff = sum(((dg - tg) ** 2).sum()
+                           for dg, tg in zip(dummy_gradients, true_gradients))
+            grad_diff.backward()
+            return grad_diff
+
+        optimizer.step(closure)
+
+    return dummy_image.detach(), dummy_label.detach()
+# After convergence: dummy_image ≈ original training image (pixel-level accurate)</code></pre>
+
+    <div class="callout callout-danger">
+      <span class="callout-label">Implications</span>
+      DLG means that the standard federated learning protocol — sharing gradients — is not privacy-preserving. A malicious server (or network eavesdropper) who observes gradient updates can reconstruct clients' private training data with high fidelity, including medical records, private photos, and sensitive documents.
+    </div>
+
+    <h2 id="membership-inference">Membership Inference Attacks</h2>
+    <p>
+      Membership inference asks a simpler question than full reconstruction: <em>"Was this specific data point in the training set?"</em> This is still a serious privacy violation — knowing that a person's medical record was used to train a disease-prediction model reveals that they have that disease.
+    </p>
+    <pre><code class="language-python">def membership_inference_attack(target_model, shadow_models, query_point):
+    """
+    Shokri et al. (2017) membership inference via shadow model training.
+
+    Shadow models are trained on known in/out data to teach an attack model
+    to distinguish the behavior of a model on its training data vs. non-training data.
+
+    Key insight: models are systematically MORE confident (lower entropy, higher
+    max probability) on training data than on unseen data — due to overfitting.
+    """
+    # Get target model's confidence vector for the query
+    with torch.no_grad():
+        confidence = target_model(query_point).softmax(dim=1)[0]
+
+    # Features: sorted confidence vector (top-k probabilities)
+    features = confidence.sort(descending=True).values[:10].numpy()
+
+    # A pre-trained attack classifier (trained on shadow model outputs)
+    # predicts: was this point in the training set?
+    is_member = attack_classifier.predict([features])[0]  # 1 = member, 0 = non-member
+    return bool(is_member)</code></pre>
+
+    <h2 id="defenses">Defenses</h2>
+
+    <h3>1. Differential Privacy (DP-SGD)</h3>
+    <p>
+      Differential privacy (Abadi et al., 2016) provides a mathematical guarantee: the model's output (and gradients) are nearly indistinguishable whether or not any individual data point was in the training set. This directly defeats membership inference and significantly limits model inversion.
+    </p>
+    <pre><code class="language-python">from opacus import PrivacyEngine
+
+model = MyModel()
+optimizer = torch.optim.SGD(model.parameters(), lr=0.01)
+data_loader = torch.utils.data.DataLoader(dataset, batch_size=64)
+
+privacy_engine = PrivacyEngine()
+model, optimizer, data_loader = privacy_engine.make_private_with_epsilon(
+    module=model,
+    optimizer=optimizer,
+    data_loader=data_loader,
+    epochs=10,
+    target_epsilon=8.0,   # Privacy budget: lower = more private, less accurate
+    target_delta=1e-5,    # Probability of privacy failure
+    max_grad_norm=1.0,    # Clip individual gradients before noise addition
+)
+
+# Now: optimizer.step() automatically clips gradients and adds calibrated Gaussian noise
+# DP guarantee: any individual training example's influence is bounded</code></pre>
+    <p>
+      The privacy-utility trade-off is real: ε=8 gives reasonable privacy with ~1–3% accuracy drop on standard benchmarks. ε=1 (strong privacy) can cost 5–10% accuracy for complex tasks.
+    </p>
+
+    <h3>2. Backdoor Detection — Neural Cleanse</h3>
+    <p>
+      Neural Cleanse (Wang et al., 2019) detects backdoors by searching for small perturbations that can flip any input to each class. A backdoored class will have an unusually <em>small</em> such perturbation — because the trigger is small and effective. The anomaly index flags backdoored classes.
+    </p>
+
+    <h3>3. Data Auditing and Provenance</h3>
+    <ul>
+      <li>Validate training data sources — prioritize data from controlled, audited pipelines</li>
+      <li>Use <strong>data watermarking</strong> to track which data came from which source</li>
+      <li>Apply <strong>influence functions</strong> to identify training examples that have disproportionate impact on specific predictions</li>
+      <li>Inspect label distributions for statistical anomalies in crowd-sourced data</li>
+    </ul>
+
+    <h3>4. Secure Aggregation in Federated Learning</h3>
+    <p>
+      Cryptographic secure aggregation protocols allow the server to compute the aggregate of client updates without seeing any individual client's gradient — eliminating the DLG attack vector at the server. Combined with differential privacy on client-side gradient clipping and noise addition, this provides strong privacy guarantees for FL.
+    </p>
+
+    <h3>5. Output Restriction</h3>
+    <p>
+      Limiting model output detail directly reduces inversion attack success:
+    </p>
+    <ul>
+      <li>Return only the top predicted class (not confidence scores) where possible</li>
+      <li>If returning confidence, return only top-k probabilities rather than the full distribution</li>
+      <li>Add small random noise to returned confidence values (label smoothing effect)</li>
+      <li>Rate-limit API queries per user to prevent systematic probing</li>
+    </ul>
+
+    <h2 id="conclusion">Conclusion</h2>
+    <p>
+      Training-time attacks — poisoning and inversion — represent the most fundamental threat to ML system integrity and privacy. Unlike inference-time attacks, their effects are permanent: a backdoored model remains compromised for its entire deployment lifetime, and extracted training data cannot be "un-leaked."
+    </p>
+    <p>
+      The defenses are maturing: differential privacy is now production-grade (Opacus, TensorFlow Privacy), Byzantine-robust aggregation is available for federated learning, and backdoor detection techniques are improving. But the arms race continues — as defenses are deployed, more sophisticated attacks emerge.
+    </p>
+    <p>
+      The key organizational control: treat your training pipeline, data supply chain, and model registry with the same security rigor as production infrastructure. An ML model is only as trustworthy as the data and process that produced it.
+    </p>
+
+  </article>
+
+  <aside class="toc">
+    <p class="toc-title">Contents</p>
+    <ol>
+      <li><a href="#poisoning-overview">Data Poisoning Overview</a></li>
+      <li><a href="#backdoor">Backdoor / Trojan Attacks</a></li>
+      <li><a href="#clean-label">Clean-Label Attacks</a></li>
+      <li><a href="#federated">Federated Learning Attacks</a></li>
+      <li><a href="#inversion-overview">Model Inversion Overview</a></li>
+      <li><a href="#optimization-inversion">Optimization-Based Inversion</a></li>
+      <li><a href="#dlg">Deep Leakage from Gradients</a></li>
+      <li><a href="#membership-inference">Membership Inference</a></li>
+      <li><a href="#defenses">Defenses</a></li>
+      <li><a href="#conclusion">Conclusion</a></li>
+    </ol>
+  </aside>
+</div>
+
+<nav class="post-nav">
+  <a href="adversarial-ml.html" class="post-nav-link">
+    <span class="post-nav-label">&larr; Previous Post</span>
+    <span class="post-nav-title">Adversarial ML: When Pixels Become Weapons</span>
+  </a>
+  <a href="../index.html" class="post-nav-link next">
+    <span class="post-nav-label">Back &rarr;</span>
+    <span class="post-nav-title">All Posts</span>
+  </a>
+</nav>
+
+<footer class="footer">
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <a href="../index.html" class="nav-logo">[ SecureAI ]</a>
+      <p class="footer-tagline">Research-grade analysis of vulnerabilities in AI and machine learning systems.</p>
+    </div>
+    <div>
+      <p class="footer-heading">Posts</p>
+      <ul class="footer-links">
+        <li><a href="owasp-top10-llm.html">OWASP Top 10 for LLMs</a></li>
+        <li><a href="prompt-injection.html">Prompt Injection</a></li>
+        <li><a href="adversarial-ml.html">Adversarial ML</a></li>
+        <li><a href="data-poisoning.html">Data Poisoning</a></li>
+      </ul>
+    </div>
+    <div>
+      <p class="footer-heading">Resources</p>
+      <ul class="footer-links">
+        <li><a href="https://owasp.org/www-project-top-10-for-large-language-model-applications/" target="_blank" rel="noopener">OWASP LLM Project</a></li>
+        <li><a href="https://genai.owasp.org/" target="_blank" rel="noopener">OWASP GenAI</a></li>
+      </ul>
+    </div>
+  </div>
+  <div class="footer-bottom">
+    <span>&copy; 2025 SecureAI Blog</span>
+    <span>Built for GitHub Pages &bull; Pure HTML/CSS/JS</span>
+  </div>
+</footer>
+
+<button id="back-to-top" aria-label="Back to top">&#8593;</button>
+<script src="../js/main.js"></script>
+</body>
+</html>
