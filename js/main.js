@@ -6,6 +6,31 @@
 (function () {
   'use strict';
 
+  /* ── Theme toggle ── */
+  const themeToggle = document.getElementById('themeToggle');
+  const THEME_KEY   = 'secureai-theme';
+
+  function applyTheme(theme) {
+    document.documentElement.setAttribute('data-theme', theme);
+    if (themeToggle) {
+      themeToggle.textContent = theme === 'light' ? '☀' : '☾';
+      themeToggle.title = theme === 'light' ? 'Switch to Dark mode' : 'Switch to Light mode';
+    }
+  }
+
+  // Load saved preference, default to dark
+  const savedTheme = localStorage.getItem(THEME_KEY) || 'dark';
+  applyTheme(savedTheme);
+
+  if (themeToggle) {
+    themeToggle.addEventListener('click', () => {
+      const current = document.documentElement.getAttribute('data-theme') || 'dark';
+      const next    = current === 'dark' ? 'light' : 'dark';
+      applyTheme(next);
+      localStorage.setItem(THEME_KEY, next);
+    });
+  }
+
   /* ── Hamburger nav ── */
   const hamburger = document.getElementById('hamburger');
   const navLinks  = document.getElementById('navLinks');

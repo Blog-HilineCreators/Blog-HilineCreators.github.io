@@ -6,14 +6,14 @@
 /* ── Google Fonts ── */
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&family=Fira+Code:wght@400;500&display=swap');
 
-/* ── CSS Variables ── */
+/* ── CSS Variables — Dark (default) ── */
 :root {
   --bg-primary:    #0a0e17;
   --bg-secondary:  #0f1520;
   --bg-tertiary:   #1a2035;
   --bg-card:       #111827;
   --accent-cyan:   #00d4ff;
-  --accent-green:  #00ff88;
+  --accent-green:  #00cc6a;
   --accent-purple: #7c3aed;
   --text-primary:  #e2e8f0;
   --text-secondary:#94a3b8;
@@ -24,6 +24,30 @@
   --border-hover:  rgba(0,212,255,0.4);
   --shadow-cyan:   0 8px 32px rgba(0,212,255,0.12);
   --shadow-card:   0 4px 24px rgba(0,0,0,0.4);
+}
+
+/* ── CSS Variables — Light theme ── */
+[data-theme="light"] {
+  --bg-primary:    #f0f4f8;
+  --bg-secondary:  #ffffff;
+  --bg-tertiary:   #e2e8f0;
+  --bg-card:       #ffffff;
+  --accent-cyan:   #0077cc;
+  --accent-green:  #007a45;
+  --accent-purple: #6d28d9;
+  --text-primary:  #0f172a;
+  --text-secondary:#334155;
+  --text-muted:    #94a3b8;
+  --danger:        #dc2626;
+  --warning:       #d97706;
+  --border:        rgba(0,0,0,0.09);
+  --border-hover:  rgba(0,119,204,0.45);
+  --shadow-cyan:   0 8px 32px rgba(0,119,204,0.12);
+  --shadow-card:   0 4px 24px rgba(0,0,0,0.10);
+}
+
+/* ── Shared non-theme variables ── */
+:root {
   --radius:        12px;
   --radius-sm:     6px;
   --radius-pill:   999px;
@@ -31,6 +55,13 @@
   --font-code:     'Fira Code', monospace;
   --font-body:     'Inter', system-ui, sans-serif;
   --navbar-h:      64px;
+}
+
+/* ── Theme transition ── */
+body, .navbar, .post-card, .hero-terminal, .toc, .footer,
+.search-input, .filter-btn, .callout, .risk-block, .post-nav-link,
+.about-section, .footer-inner, pre, blockquote {
+  transition: background 0.3s ease, color 0.3s ease, border-color 0.3s ease;
 }
 
 /* ── Reset ── */
@@ -45,7 +76,10 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 a { color: var(--accent-cyan); text-decoration: none; transition: color 0.2s; }
-a:hover { color: #4de3ff; }
+a:hover { color: var(--accent-cyan); filter: brightness(1.2); }
+
+/* ── Light theme link hover fix ── */
+[data-theme="light"] a:hover { filter: brightness(0.8); }
 img { max-width: 100%; height: auto; display: block; }
 ul { list-style: none; }
 
@@ -130,6 +164,28 @@ ul { list-style: none; }
   transition: border-color 0.2s;
 }
 .hamburger:hover { border-color: var(--accent-cyan); }
+
+/* ── Theme toggle button ── */
+.theme-toggle {
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: border-color 0.2s, color 0.2s, transform 0.3s;
+  flex-shrink: 0;
+}
+.theme-toggle:hover {
+  border-color: var(--accent-cyan);
+  color: var(--accent-cyan);
+  transform: rotate(20deg);
+}
 
 @media (max-width: 768px) {
   .hamburger { display: block; }
@@ -779,7 +835,7 @@ ul { list-style: none; }
 
 /* Code blocks */
 .post-content pre {
-  background: #090d15;
+  background: var(--bg-secondary);
   border: 1px solid var(--border);
   border-radius: var(--radius);
   padding: 0;
